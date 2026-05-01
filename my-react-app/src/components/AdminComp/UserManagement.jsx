@@ -5,13 +5,14 @@ import styles from '../Dashescomp/Dashes.module.css'
 import adminStyles from './Admin.module.css'
 
 const API = 'http://localhost:3000/api/users'
+const API_COMPANIES = 'http://localhost:3000/api/companies'
 
 const TABS = [
-  { key: 'all',            label: 'All' },
   { key: 'pending',        label: 'Pending Requests' },
-  { key: 'super_admin',    label: 'Super Admin' },
   { key: 'company_admin',  label: 'Company Admin' },
   { key: 'pharmacy_admin', label: 'Pharmacy Admin' },
+  { key: 'super_admin',    label: 'Super Admin' },
+  { key: 'all',            label: 'All' },
 ]
 
 const byOldest = (a, b) => new Date(a.created_at) - new Date(b.created_at)
@@ -19,7 +20,8 @@ const byOldest = (a, b) => new Date(a.created_at) - new Date(b.created_at)
 function UserManagement() {
   const [users, setUsers]                     = useState([])
   const [pendingRequests, setPendingRequests] = useState([])
-  const [activeTab, setActiveTab]             = useState('all')
+  const [companies, setCompanies]             = useState([])
+  const [activeTab, setActiveTab]             = useState('pending')
   const [loading, setLoading]                 = useState(true)
   const [showModal, setShowModal]             = useState(false)
   const [editing, setEditing]                 = useState(null)
@@ -27,7 +29,7 @@ function UserManagement() {
   const [actionLoading, setActionLoading]     = useState(null)
   const [toast, setToast]                     = useState(null)
   const [form, setForm] = useState({
-    name: '', email: '', password: '', account_type: 'pharmacy_admin', is_active: 1
+    name: '', email: '', password: '', account_type: 'pharmacy_admin', is_active: 1, company_id: ''
   })
 
   const token   = localStorage.getItem('token')
@@ -41,12 +43,14 @@ function UserManagement() {
   const fetchAll = async () => {
     setLoading(true)
     try {
-      const [usersRes, pendingRes] = await Promise.all([
+      const [usersRes, pendingRes, companiesRes] = await Promise.all([
         fetch(API, { headers }),
         fetch(`${API}/pending`, { headers }),
+        fetch(API_COMPANIES, { headers }),
       ])
-      if (usersRes.ok)   setUsers(await usersRes.json())
-      if (pendingRes.ok) setPendingRequests(await pendingRes.json())
+      if (usersRes.ok)     setUsers(await usersRes.json())
+      if (pendingRes.ok)   setPendingRequests(await pendingRes.json())
+      if (companiesRes.ok) setCompanies(await companiesRes.json())
     } catch (err) {
       console.error('Fetch error:', err)
     } finally {
@@ -84,7 +88,7 @@ function UserManagement() {
   // ── Modal helpers ─────────────────────────────────────────────
   const openAdd = () => {
     setEditing(null)
-    setForm({ name: '', email: '', password: '', account_type: 'pharmacy_admin', is_active: 1 })
+    setForm({ name: '', email: '', password: '', account_type: 'pharmacy_admin', is_active: 1, company_id: '' })
     setShowModal(true)
   }
 
@@ -96,6 +100,7 @@ function UserManagement() {
       password:     '',
       account_type: user.account_type,
       is_active:    user.is_active,
+      company_id:   user.company_id ? String(user.company_id) : '',
     })
     setShowModal(true)
   }
@@ -106,6 +111,7 @@ function UserManagement() {
       if (editing) {
         const body = { ...form }
         if (!body.password) delete body.password
+        if (body.account_type !== 'company_admin' || !body.company_id) delete body.company_id
         const res = await fetch(`${API}/${editing.id}`, {
           method: 'PUT', headers, body: JSON.stringify(body)
         })
@@ -118,8 +124,10 @@ function UserManagement() {
           showToast(data.message || 'Update failed', 'error')
         }
       } else {
+        const body = { ...form }
+        if (body.account_type !== 'company_admin') delete body.company_id
         const res = await fetch(`${API}/register`, {
-          method: 'POST', headers, body: JSON.stringify(form)
+          method: 'POST', headers, body: JSON.stringify(body)
         })
         if (res.ok) {
           showToast('User created successfully')
@@ -289,6 +297,15 @@ function UserManagement() {
           {val?.replace(/_/g, ' ')}
         </span>
       )
+    },
+    {
+      key: 'company_id', label: 'Linked',
+      render: (val, row) => {
+        if (row.account_type !== 'company_admin') return <span style={{ color: 'var(--text-muted)' }}>—</span>
+        return val
+          ? <span style={{ background: '#f0fdf4', color: '#15803d', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700 }}>✓ Linked</span>
+          : <span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700 }}>✕ No company</span>
+      }
     },
     {
       key: 'is_active', label: 'Status',
@@ -528,7 +545,7 @@ function UserManagement() {
               <select
                 className={styles.formSelect}
                 value={form.account_type}
-                onChange={e => setForm({ ...form, account_type: e.target.value })}
+                onChange={e => setForm({ ...form, account_type: e.target.value, company_id: '' })}
               >
                 <option value="super_admin">Super Admin</option>
                 <option value="company_admin">Company Admin</option>
@@ -548,6 +565,24 @@ function UserManagement() {
               </select>
             </div>
           </div>
+
+          {form.account_type === 'company_admin' && (
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>
+                Company {editing && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(leave empty to keep current)</span>}
+              </label>
+              <select
+                className={styles.formSelect}
+                value={form.company_id}
+                onChange={e => setForm({ ...form, company_id: e.target.value })}
+              >
+                <option value="">— Select company —</option>
+                {companies.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </Modal>
       )}
 

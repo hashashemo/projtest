@@ -11,21 +11,21 @@ import AdminPharmacyDetail from '../components/AdminComp/AdminPharmacyDetail'
 import styles from '../components/Dashescomp/Dashes.module.css'
 
 const tabTitles = {
-  overview:   { title: 'Overview Dashboard',  breadcrumb: 'Admin → Overview' },
-  users:      { title: 'User Management',      breadcrumb: 'Admin → Users' },
-  companies:  { title: 'Companies',            breadcrumb: 'Admin → Catalog → Companies' },
-  pharmacies: { title: 'Pharmacies',           breadcrumb: 'Admin → Catalog → Pharmacies' },
-  products:   { title: 'All Products',         breadcrumb: 'Admin → Catalog → Products' },
-  orders:     { title: 'Orders',               breadcrumb: 'Admin → Operations → Orders' },
-  finance:    { title: 'Finance',              breadcrumb: 'Admin → Operations → Finance' },
-  system:     { title: 'System',               breadcrumb: 'Admin → Operations → System' },
+  overview: { title: 'Overview Dashboard', breadcrumb: 'Admin → Overview' },
+  users: { title: 'User Management', breadcrumb: 'Admin → Users' },
+  companies: { title: 'Companies', breadcrumb: 'Admin → Catalog → Companies' },
+  pharmacies: { title: 'Pharmacies', breadcrumb: 'Admin → Catalog → Pharmacies' },
+  products: { title: 'All Products', breadcrumb: 'Admin → Catalog → Products' },
+  orders: { title: 'Orders', breadcrumb: 'Admin → Operations → Orders' },
+  finance: { title: 'Finance', breadcrumb: 'Admin → Operations → Finance' },
+  system: { title: 'System', breadcrumb: 'Admin → Operations → System' },
 }
 
 function AdminDash() {
-  const [activeTab, setActiveTab]         = useState('overview')
+  const [activeTab, setActiveTab] = useState('overview')
   const [selectedPharmacyId, setSelectedPharmacyId] = useState(null)
 
-  const current  = tabTitles[activeTab] || tabTitles.overview
+  const current = tabTitles[activeTab] || tabTitles.overview
   const userName = localStorage.getItem('user_name') || 'Admin'
 
   const handleTabChange = (tab) => {
@@ -60,18 +60,18 @@ function AdminDash() {
         />
 
         <div className={styles.dashContent}>
-          {activeTab === 'overview'   && <AdminOverview onTabChange={handleTabChange} />}
-          {activeTab === 'users'      && <UserManagement />}
-          {activeTab === 'companies'  && <CompanyList />}
+          {activeTab === 'overview' && <AdminOverview onTabChange={handleTabChange} />}
+          {activeTab === 'users' && <UserManagement />}
+          {activeTab === 'companies' && <CompanyList />}
           {activeTab === 'pharmacies' && (
             selectedPharmacyId
               ? <AdminPharmacyDetail pharmacyId={selectedPharmacyId} onBack={() => setSelectedPharmacyId(null)} />
               : <PharmacyList onViewPharmacy={handleViewPharmacy} />
           )}
-          {activeTab === 'products'   && <AdminProductCatalog />}
-          {activeTab === 'orders'     && <OrdersOverview />}
-          {activeTab === 'finance'    && <PlaceholderPage title="Finance" desc="Financial flows, settlements and arrears reports." icon="💰" />}
-          {activeTab === 'system'     && <PlaceholderPage title="System" desc="System configuration, audit logs and health checks." icon="⚙️" />}
+          {activeTab === 'products' && <AdminProductCatalog />}
+          {activeTab === 'orders' && <OrdersOverview />}
+          {activeTab === 'finance' && <PlaceholderPage title="Finance" desc="Financial flows, settlements and arrears reports." icon="💰" />}
+          {activeTab === 'system' && <PlaceholderPage title="System" desc="System configuration, audit logs and health checks." icon="⚙️" />}
         </div>
       </div>
     </div>
