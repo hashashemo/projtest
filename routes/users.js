@@ -6,7 +6,7 @@ const pool = require('../db');
 
 const router = express.Router();
 
-// ===== Auto-create pending_requests table =====
+// ===== Auto-create tables =====
 ;(async () => {
   try {
     await pool.query(`
@@ -21,8 +21,28 @@ const router = express.Router();
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS company_users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        company_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_user_company (user_id, company_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+      )
+    `);
+    // Auto-link any existing company_admin users to companies by entity_name match
+    await pool.query(`
+      INSERT IGNORE INTO company_users (user_id, company_id)
+      SELECT u.id, c.id
+      FROM users u
+      JOIN companies c ON c.name = u.entity_name
+      LEFT JOIN company_users cu ON cu.user_id = u.id
+      WHERE u.account_type = 'company_admin' AND cu.user_id IS NULL
+    `);
   } catch (err) {
-    console.error('Could not create pending_requests table:', err.message);
+    console.error('Could not create tables:', err.message);
   }
 })();
 
@@ -69,7 +89,7 @@ const isSuperAdmin = (req, res, next) => {
 // Admin creates a user directly (active immediately)
 router.post('/register', verifyToken, isSuperAdmin, async (req, res) => {
   try {
-    const { name, email, password, account_type } = req.body;
+    const { name, email, password, account_type, company_id } = req.body;
 
     if (!name || !email || !password || !account_type) {
       return res.status(400).json({ message: 'All fields are required' });
@@ -79,9 +99,18 @@ router.post('/register', verifyToken, isSuperAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Invalid account type' });
     }
 
+    if (account_type === 'company_admin' && !company_id) {
+      return res.status(400).json({ message: 'company_id is required for company_admin' });
+    }
+
     const [existing] = await pool.query(`SELECT id FROM users WHERE email = ?`, [email]);
     if (existing.length > 0) {
       return res.status(409).json({ message: 'Email already exists' });
+    }
+
+    if (company_id) {
+      const [comp] = await pool.query(`SELECT id FROM companies WHERE id = ?`, [company_id]);
+      if (comp.length === 0) return res.status(404).json({ message: 'Company not found' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -89,6 +118,13 @@ router.post('/register', verifyToken, isSuperAdmin, async (req, res) => {
       `INSERT INTO users (name, email, password, account_type, is_active) VALUES (?, ?, ?, ?, 1)`,
       [name, email, hashedPassword, account_type]
     );
+
+    if (account_type === 'company_admin' && company_id) {
+      await pool.query(
+        `INSERT INTO company_users (user_id, company_id) VALUES (?, ?)`,
+        [result.insertId, company_id]
+      );
+    }
 
     res.status(201).json({ message: 'User created successfully', userId: result.insertId });
   } catch (error) {
@@ -275,7 +311,24 @@ router.post('/login', async (req, res) => {
         `SELECT c.id, c.name FROM company_users cu JOIN companies c ON c.id = cu.company_id WHERE cu.user_id = ? LIMIT 1`,
         [user.id]
       );
-      if (rel.length > 0) { entity_name = rel[0].name; entity_id = rel[0].id; }
+      if (rel.length > 0) {
+        entity_name = rel[0].name;
+        entity_id = rel[0].id;
+      } else if (user.entity_name) {
+        // Fallback: auto-link by entity_name match
+        const [compMatch] = await pool.query(
+          `SELECT id, name FROM companies WHERE name = ? LIMIT 1`,
+          [user.entity_name]
+        );
+        if (compMatch.length > 0) {
+          entity_name = compMatch[0].name;
+          entity_id = compMatch[0].id;
+          await pool.query(
+            `INSERT IGNORE INTO company_users (user_id, company_id) VALUES (?, ?)`,
+            [user.id, compMatch[0].id]
+          );
+        }
+      }
     }
 
     const token = jwt.sign(
@@ -297,9 +350,12 @@ router.post('/login', async (req, res) => {
 // Get all active users
 router.get('/', verifyToken, isSuperAdmin, async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      `SELECT id, name, email, account_type, phone, entity_name, is_active, created_at FROM users`
-    );
+    const [rows] = await pool.query(`
+      SELECT u.id, u.name, u.email, u.account_type, u.phone, u.entity_name, u.is_active, u.created_at,
+             cu.company_id
+      FROM users u
+      LEFT JOIN company_users cu ON cu.user_id = u.id
+    `);
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -323,7 +379,7 @@ router.get('/:id', verifyToken, isSuperAdmin, async (req, res) => {
 // Update user — email, name, status are kept as-is (read-only from admin UI)
 router.put('/:id', verifyToken, isSuperAdmin, async (req, res) => {
   try {
-    const { name, email, account_type, is_active, password } = req.body;
+    const { name, email, account_type, is_active, password, company_id } = req.body;
     const { id } = req.params;
 
     const [existing] = await pool.query(`SELECT id FROM users WHERE id = ?`, [id]);
@@ -343,6 +399,16 @@ router.put('/:id', verifyToken, isSuperAdmin, async (req, res) => {
       await pool.query(
         `UPDATE users SET name=?, email=?, account_type=?, is_active=? WHERE id=?`,
         [name, email, account_type, is_active, id]
+      );
+    }
+
+    if (account_type === 'company_admin' && company_id) {
+      const [comp] = await pool.query(`SELECT id FROM companies WHERE id = ?`, [company_id]);
+      if (comp.length === 0) return res.status(404).json({ message: 'Company not found' });
+      await pool.query(
+        `INSERT INTO company_users (user_id, company_id) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE company_id = VALUES(company_id)`,
+        [id, company_id]
       );
     }
 
