@@ -77,17 +77,17 @@ router.post('/', verifyToken, isCompanyAdmin, async (req, res) => {
       return res.status(404).json({ message: 'Company not found' });
     }
 
-    const { image_url, promotion_end_date } = req.body;
+    const { image_url, promotion_end_date, unit_type } = req.body;
     const [result] = await pool.query(
       `INSERT INTO products
-       (company_id, name, category, manufacturer, description, price, stock_quantity, has_expiry, expiry_date, discount_percentage, image_url, promotion_end_date, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [company_id, name, category, manufacturer, description, price, stock_quantity, has_expiry, expiry_date || null, discount_percentage || 0, image_url || null, promotion_end_date || null]
+       (company_id, name, category, manufacturer, description, price, stock_quantity, has_expiry, expiry_date, discount_percentage, image_url, promotion_end_date, unit_type, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [company_id, name, category, manufacturer, description, price, stock_quantity, has_expiry, expiry_date || null, discount_percentage || 0, image_url || null, promotion_end_date || null, unit_type || null]
     );
 
-    res.status(201).json({ 
-      message: 'Product created successfully', 
-      productId: result.insertId 
+    res.status(201).json({
+      message: 'Product created successfully',
+      productId: result.insertId
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -155,10 +155,10 @@ router.get('/:id', verifyToken, isAuthenticated, async (req, res) => {
 router.put('/:id', verifyToken, isCompanyAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { 
-      name, category, manufacturer, description, 
-      price, stock_quantity, has_expiry, 
-      expiry_date, discount_percentage 
+    const {
+      name, category, manufacturer, description,
+      price, stock_quantity, has_expiry,
+      expiry_date, discount_percentage
     } = req.body;
 
     // تحقق إنه المنتج موجود
@@ -179,13 +179,13 @@ router.put('/:id', verifyToken, isCompanyAdmin, async (req, res) => {
       }
     }
 
-    const { image_url, promotion_end_date } = req.body;
+    const { image_url, promotion_end_date, unit_type } = req.body;
     await pool.query(
       `UPDATE products
        SET name=?, category=?, manufacturer=?, description=?, price=?,
-           stock_quantity=?, has_expiry=?, expiry_date=?, discount_percentage=?, image_url=?, promotion_end_date=?, updated_at=NOW()
+           stock_quantity=?, has_expiry=?, expiry_date=?, discount_percentage=?, image_url=?, promotion_end_date=?, unit_type=?, updated_at=NOW()
        WHERE id=?`,
-      [name, category, manufacturer, description, price, stock_quantity, has_expiry, expiry_date || null, discount_percentage || 0, image_url || null, promotion_end_date || null, id]
+      [name, category, manufacturer, description, price, stock_quantity, has_expiry, expiry_date || null, discount_percentage || 0, image_url || null, promotion_end_date || null, unit_type || null, id]
     );
 
     res.json({ message: 'Product updated successfully' });
