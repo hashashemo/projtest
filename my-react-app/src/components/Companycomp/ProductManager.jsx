@@ -5,6 +5,7 @@ import styles from '../Dashescomp/Dashes.module.css'
 import compStyles from './Company.module.css'
 
 const API_PRODUCTS = 'http://localhost:3000/api/products'
+const API_UNITS = 'http://localhost:3000/api/unit-types'
 
 function ProductManager() {
   const [products, setProducts] = useState([])
@@ -13,10 +14,11 @@ function ProductManager() {
   const [editing, setEditing] = useState(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
+  const [unitTypes, setUnitTypes] = useState([])
   const [form, setForm] = useState({
     name: '', category: '', manufacturer: '', description: '',
     price: '', stock_quantity: '', has_expiry: 0, expiry_date: '',
-    discount_percentage: 0, image_url: '', promotion_end_date: ''
+    discount_percentage: 0, image_url: '', promotion_end_date: '', unit_type: ''
   })
 
   const handleImageUpload = (e) => {
@@ -51,12 +53,27 @@ function ProductManager() {
     }
   }
 
-  useEffect(() => { fetchProducts() }, [])
+  const fetchUnitTypes = async () => {
+    try {
+      const companyId = localStorage.getItem('company_id')
+      const validId = companyId && companyId !== 'null' && companyId !== 'undefined'
+      const url = validId
+        ? `${API_UNITS}/company/${companyId}`
+        : `${API_UNITS}/my`
+      const res = await fetch(url, { headers })
+      if (res.ok) setUnitTypes(await res.json())
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => {
+    fetchProducts()
+    fetchUnitTypes()
+  }, [])
 
   const emptyForm = {
     name: '', category: '', manufacturer: '', description: '',
     price: '', stock_quantity: '', has_expiry: 0, expiry_date: '',
-    discount_percentage: 0, image_url: '', promotion_end_date: ''
+    discount_percentage: 0, image_url: '', promotion_end_date: '', unit_type: ''
   }
 
   const openAdd = () => {
@@ -78,7 +95,8 @@ function ProductManager() {
       expiry_date: product.expiry_date ? product.expiry_date.split('T')[0] : '',
       discount_percentage: product.discount_percentage || 0,
       image_url: product.image_url || '',
-      promotion_end_date: product.promotion_end_date ? product.promotion_end_date.substring(0, 16) : ''
+      promotion_end_date: product.promotion_end_date ? product.promotion_end_date.substring(0, 16) : '',
+      unit_type: product.unit_type || ''
     })
     setShowModal(true)
   }
@@ -132,6 +150,12 @@ function ProductManager() {
           {val} units
         </span>
       )
+    },
+    {
+      key: 'unit_type', label: 'Unit Type',
+      render: (val) => val
+        ? <span style={{ background: 'rgba(139,92,246,0.1)', color: '#8b5cf6', padding: '2px 8px', borderRadius: '6px', fontSize: '0.78rem', fontWeight: 600 }}>{val}</span>
+        : <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>
     },
     {
       key: 'discount_percentage', label: 'Discount',
@@ -209,22 +233,44 @@ function ProductManager() {
               <input className={styles.formInput} type="number" placeholder="0" value={form.stock_quantity} onChange={e => setForm({ ...form, stock_quantity: e.target.value })} />
             </div>
           </div>
+          {/* Unit Type Dropdown */}
           <div className={styles.formRow}>
+            <div className={styles.formGroup}>
+              <label className={styles.formLabel}>Unit Type</label>
+              {unitTypes.length > 0 ? (
+                <select
+                  className={styles.formSelect || styles.formInput}
+                  value={form.unit_type}
+                  onChange={e => setForm({ ...form, unit_type: e.target.value })}
+                >
+                  <option value="">— Select unit type —</option>
+                  {unitTypes.map(u => (
+                    <option key={u.id} value={u.name}>{u.name} ({u.pieces_per_unit} pcs)</option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{
+                  padding: '10px 14px', borderRadius: '10px', background: '#f8fafc',
+                  border: '1.5px dashed #e2e8f0', color: '#94a3b8', fontSize: '0.82rem',
+                }}>
+                  No unit types configured — contact admin
+                </div>
+              )}
+            </div>
             <div className={styles.formGroup}>
               <label className={styles.formLabel}>Discount (%)</label>
               <input className={styles.formInput} type="number" min="0" max="100" placeholder="0" value={form.discount_percentage} onChange={e => setForm({ ...form, discount_percentage: e.target.value })} />
             </div>
+          </div>
+          <div className={styles.formRow}>
             <div className={styles.formGroup}>
               <label className={styles.formLabel}>Expiry Date</label>
               <input className={styles.formInput} type="date" value={form.expiry_date} onChange={e => setForm({ ...form, expiry_date: e.target.value, has_expiry: e.target.value ? 1 : 0 })} />
             </div>
-          </div>
-          <div className={styles.formRow}>
             <div className={styles.formGroup}>
               <label className={styles.formLabel}>Promotion End Date/Time</label>
               <input className={styles.formInput} type="datetime-local" value={form.promotion_end_date} onChange={e => setForm({ ...form, promotion_end_date: e.target.value })} />
             </div>
-            <div></div>
           </div>
         </Modal>
       )}

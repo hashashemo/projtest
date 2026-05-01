@@ -39,14 +39,12 @@ function LoginRight() {
       localStorage.setItem('user_name', data.user.name)
 
       // احفظ اسم الكيان المرتبط (صيدلية أو شركة)
-      if (data.user.entity_name) {
-        if (data.user.account_type === 'pharmacy_admin') {
-          localStorage.setItem('pharmacy_display_name', data.user.entity_name)
-          localStorage.setItem('pharmacy_id', data.user.entity_id)
-        } else if (data.user.account_type === 'company_admin') {
-          localStorage.setItem('company_display_name', data.user.entity_name)
-          localStorage.setItem('company_id', data.user.entity_id)
-        }
+      if (data.user.account_type === 'pharmacy_admin') {
+        if (data.user.entity_name) localStorage.setItem('pharmacy_display_name', data.user.entity_name)
+        if (data.user.entity_id)   localStorage.setItem('pharmacy_id', data.user.entity_id)
+      } else if (data.user.account_type === 'company_admin') {
+        if (data.user.entity_name) localStorage.setItem('company_display_name', data.user.entity_name)
+        if (data.user.entity_id)   localStorage.setItem('company_id', data.user.entity_id)
       }
 
       // وجّه حسب نوع الحساب
@@ -77,6 +75,7 @@ function LoginRight() {
             placeholder="example@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
           />
         </div>
 
@@ -88,6 +87,7 @@ function LoginRight() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
             />
           </div>
         </div>
@@ -103,16 +103,6 @@ function LoginRight() {
         </button>
 
         <a href="/" className={styles.loginBack}>← Back to home</a>
-
-        {/* Temporary Quick Links for Testing */}
-        <div style={{ marginTop: '2rem', padding: '1rem', borderTop: '1px solid #eee', textAlign: 'center' }}>
-          <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>🧪 Quick Testing (No Auth Required)</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
-            <button onClick={() => navigate('/company')} style={{ background: '#f0f4f2', border: '1px solid #d1e2d9', borderRadius: '4px', padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer', color: '#0b2e20' }}>Company Dash</button>
-            <button onClick={() => navigate('/pharmacy-dashboard')} style={{ background: '#f0f4f2', border: '1px solid #d1e2d9', borderRadius: '4px', padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer', color: '#0b2e20' }}>Pharmacy Dash</button>
-            <button onClick={() => navigate('/admin')} style={{ background: '#f0f4f2', border: '1px solid #d1e2d9', borderRadius: '4px', padding: '4px 8px', fontSize: '0.75rem', cursor: 'pointer', color: '#0b2e20' }}>Admin Dash</button>
-          </div>
-        </div>
       </div>
     </div>
   )
