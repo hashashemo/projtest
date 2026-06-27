@@ -8,7 +8,7 @@ import PharmacyDash from './pages/PharmacyDash'
 import PaymentPage from './pages/PaymentPage'
 import ProductDetailLayout from './components/PharmacyComp/products/ProductDetailLayout'
 import ProductBrowsingLayout from './components/PharmacyComp/products/ProductBrowsingLayout'
-
+// hi
 function App() {
   return (
 
